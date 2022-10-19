@@ -4,7 +4,7 @@ KNOWN = {'=': 'OP_PRIDRUZI', '+': 'OP_PLUS', '-': 'OP_MINUS', '*': 'OP_PUTA', '/
          'az': 'KR_AZ', 'za': 'KR_ZA', 'od': 'KR_OD', 'do': 'KR_DO'}
 
 
-def process(token, i):
+def process_line(token, i):
     if token in KNOWN:
         print(f"{KNOWN[token]} {i+1} {token}")
     elif token.isnumeric():
@@ -17,12 +17,17 @@ def process(token, i):
             tmp += j
             if j in KNOWN:
                 if tmp[:-1]:
-                    process(tmp[:-1], i)
-                process(j, i)
+                    process_line(tmp[:-1], i)
+                process_line(j, i)
                 tmp = ''
-        process(tmp, i)
+        process_line(tmp, i)
 
 
-for i, line in enumerate([rl.split('//')[0].strip() for rl in sys.stdin.readlines()]):
-    for token in line.split():
-        process(token, i)
+def process(lines: list[str]):
+    for i, line in enumerate([rl.split('//')[0].strip() for rl in lines]):
+        for token in line.split():
+            process_line(token, i)
+
+
+if __name__ == '__main__':
+    process(sys.stdin.readlines())
