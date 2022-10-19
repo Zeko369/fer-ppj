@@ -23,11 +23,11 @@ def process_line(token, i):
         process_line(tmp, i)
 
 
-def process(lines: list[str]):
-    for i, line in enumerate([rl.split('//')[0].strip() for rl in lines]):
+def process(text: str):
+    for i, line in enumerate([rl.split('//')[0].strip() for rl in text.splitlines()]):
         for token in line.split():
             process_line(token, i)
 
 
 if __name__ == '__main__':
-    process(sys.stdin.readlines())
+    process(sys.stdin.read())
