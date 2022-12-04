@@ -94,7 +94,7 @@ class SyntaxAnalyzer:
         elif self.__get_instruction() == 'KR_AZ':
             self._print('$')
         elif self.__get_instruction() == 'OP_PRIDRUZI':
-            raise SyntaxError(self.instructions[self.iLine][self.iInst])
+            raise SyntaxError(self.__get())
 
         self.indent -= 1
 
@@ -111,19 +111,18 @@ class SyntaxAnalyzer:
     def _process_assignment(self):
         self._print('<naredba_pridruzivanja>', 1)
         for i in range(2):
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
             self.iInst += 1
 
-        if self.iInst >= len(self.instructions[self.iLine]) and self.instructions[self.iLine][self.iInst - 1][0] == 'OP_PRIDRUZI' and self.iLine + 1 >= len(self.instructions):
+        if self.iInst >= len(self.instructions[self.iLine]) and self.__get_instruction(-1) == 'OP_PRIDRUZI' and self.iLine + 1 >= len(self.instructions):
             raise SyntaxError('kraj')
 
         if self.iInst >= len(self.instructions[self.iLine]):
             self.iLine += 1
             self.iInst = 0
 
-            if self.instructions[self.iLine][self.iInst + 1][0] == 'OP_PRIDRUZI':
-                raise SyntaxError(
-                    self.instructions[self.iLine][self.iInst + 1])
+            if self.__get_instruction(1) == 'OP_PRIDRUZI':
+                raise SyntaxError(self.__get(1))
 
         self.__e()
 
@@ -136,21 +135,21 @@ class SyntaxAnalyzer:
     def _process_for(self):
         self._print('<za_petlja>', 1)
         for i in range(3):
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
             self.iInst += 1
 
         if self.__get_instruction() in ["OP_MINUS", "OP_PLUS", "BROJ", "IDN", "L_ZAGRADA"]:
             self.__e()
         else:
-            raise SyntaxError(self.instructions[self.iLine][self.iInst])
+            raise SyntaxError(self.__get())
 
-        self._print(self.instructions[self.iLine][self.iInst])
+        self._print(self.__get())
         self.iInst += 1
 
         if self.__get_instruction() in ["OP_MINUS", "OP_PLUS", "BROJ", "IDN", "L_ZAGRADA"]:
             self.__e()
         else:
-            raise SyntaxError(self.instructions[self.iLine][self.iInst - 1])
+            raise SyntaxError(self.__get(-1))
 
         self.iLine += 1
         self.iInst = 0
@@ -160,8 +159,11 @@ class SyntaxAnalyzer:
         self._print(self.instructions[self.iLine][0])
         self.indent -= 1
 
-    def __get_instruction(self):
-        return self.instructions[self.iLine][self.iInst][0]
+    def __get(self, offset=0):
+        return self.instructions[self.iLine][self.iInst + offset]
+
+    def __get_instruction(self, offset=0):
+        return self.__get(offset)[0]
 
     def __te_builder(self, label, run_fn, list_fn):
         self._print(f'<{label}>', 1)
@@ -185,7 +187,7 @@ class SyntaxAnalyzer:
         if self.__get_instruction() in ["IDN", "D_ZAGRADA", "KR_ZA", "KR_DO", "KR_AZ"]:
             self._print('$')
         elif self.__get_instruction() in ["OP_PLUS", "OP_MINUS"]:
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
             self.iInst += 1
 
             self.__e()
@@ -202,7 +204,7 @@ class SyntaxAnalyzer:
         if self.__get_instruction() in ["IDN", "D_ZAGRADA", "OP_PLUS", "OP_MINUS", "KR_ZA", "KR_DO", "KR_AZ"]:
             self._print('$')
         elif self.__get_instruction() in ["OP_PUTA", "OP_DIJELI"]:
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
             self.iInst += 1
 
             self.__t()
@@ -213,10 +215,10 @@ class SyntaxAnalyzer:
         self._print('<P>', 1)
 
         if self.__get_instruction() in ['IDN', 'BROJ']:
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
             self.iInst += 1
         elif self.__get_instruction() in ['OP_PLUS', 'OP_MINUS']:
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
 
             self.iInst += 1
             if self.__get_instruction() in ['IDN', 'BROJ', 'OP_PLUS', 'OP_MINUS', 'L_ZAGRADA']:
@@ -226,7 +228,7 @@ class SyntaxAnalyzer:
 
             self.__e_list()
         elif self.__get_instruction() == 'L_ZAGRADA':
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
             self.iInst += 1
 
             self.__e()
@@ -236,7 +238,7 @@ class SyntaxAnalyzer:
 
     def __right_parentheses(self):
         if self.__get_instruction() == 'D_ZAGRADA':
-            self._print(self.instructions[self.iLine][self.iInst])
+            self._print(self.__get())
         self.iInst += 1
 
 
