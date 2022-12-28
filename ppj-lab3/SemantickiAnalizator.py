@@ -17,44 +17,43 @@ class SemanticAnalyzer:
             line = self.lines[i]
             line_type = self.get_type(line)
 
-            match line_type:
-                case 'KR_ZA':
-                    loop += 1
-                    self.scope_vars.append({})
-                case 'KR_AZ':
-                    loop -= 1
-                    self.scope_vars.pop()
-                case 'IDN':
-                    idn = self.get_identifier(line)
-                    line_number = self.get_line(line)
-                    next_line_type = self.get_type(self.lines[i + 1])
+            if line_type == 'KR_ZA':
+                loop += 1
+                self.scope_vars.append({})
+            elif line_type == 'KR_AZ':
+                loop -= 1
+                self.scope_vars.pop()
+            elif line_type == 'IDN':
+                idn = self.get_identifier(line)
+                line_number = self.get_line(line)
+                next_line_type = self.get_type(self.lines[i + 1])
 
-                    if next_line_type == 'OP_PRIDRUZI':
-                        if loop == 0 and idn not in self.global_vars:
-                            self.global_vars[idn] = line_number
-                        if loop > 0 and idn not in self.global_vars and idn not in self.scope_vars[-1]:
-                            self.scope_vars[-1][idn] = line_number
-
-                        i += 1
-                        continue
-
-                    if next_line_type == 'KR_OD':
+                if next_line_type == 'OP_PRIDRUZI':
+                    if loop == 0 and idn not in self.global_vars:
+                        self.global_vars[idn] = line_number
+                    if loop > 0 and idn not in self.global_vars and idn not in self.scope_vars[-1]:
                         self.scope_vars[-1][idn] = line_number
-                        i += 1
-                        continue
 
-                    def_line_number = self.is_local(idn)
-                    if def_line_number is None:
-                        def_line_number = self.global_vars.get(idn)
+                    i += 1
+                    continue
 
-                    if def_line_number == line_number:
-                        def_line_number = None
+                if next_line_type == 'KR_OD':
+                    self.scope_vars[-1][idn] = line_number
+                    i += 1
+                    continue
 
-                    if def_line_number is None:
-                        print('err', line_number, idn)
-                        break
+                def_line_number = self.is_local(idn)
+                if def_line_number is None:
+                    def_line_number = self.global_vars.get(idn)
 
-                    print(line_number, def_line_number, idn)
+                if def_line_number == line_number:
+                    def_line_number = None
+
+                if def_line_number is None:
+                    print('err', line_number, idn)
+                    break
+
+                print(line_number, def_line_number, idn)
 
             i += 1
 
