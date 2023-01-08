@@ -1,0 +1,35 @@
+    MOVE 40000, R7 ; init stog
+
+    ; 3
+    MOVE %D 3, R0
+    PUSH R0
+
+    ; x = 3
+    POP R0
+    STORE R0, (V0)
+
+    ; x
+    LOAD R0, (V0)
+    PUSH R0
+
+    ; 2
+    MOVE %D 2, R0
+    PUSH R0
+
+    ; x - 2
+    POP R1
+    POP R0
+    SUB R0, R1, R2
+    PUSH R2
+
+    ; rez = x - 2
+    POP R0
+    STORE R0, (V1)
+
+    ; "vrati" rez
+    LOAD R6, (V1)
+    HALT
+
+    ; varijable
+V0 DW 0 ; x
+V1 DW 0 ; rez
