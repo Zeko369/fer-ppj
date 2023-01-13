@@ -213,8 +213,7 @@ class FRISC_generator:
         parser = AST_parser(self.raw_lines)
         root = parser.run()
 
-        # pprint.pprint(root)
-        print(root)
+        pprint.pprint(root)
 
 
 if __name__ == '__main__':
