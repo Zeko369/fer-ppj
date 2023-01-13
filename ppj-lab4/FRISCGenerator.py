@@ -1,6 +1,6 @@
-from ctypes import cast
 import re
 import sys
+import pprint
 from typing import Literal, Optional
 from dataclasses import dataclass
 
@@ -21,26 +21,20 @@ class InstructionBlock:
 
     @staticmethod
     def parse(lines: list["Line"]) -> "InstructionBlock | None":
-        if len(lines) == 1:
-            if lines[0].type() != 'non':
-                raise IllegalStateError
-
-            return None
-
         sub = Line.get_subtree(lines[0:])
-        instruction = None
+        if len(sub) == 1:
+            if sub[0].type() == 'non':
+                return None
 
-        match(lines[1].value):
-            case '<naredba_pridruzivanja>':
-                instruction = AssignOperation(
-                    lines[2].get_part(2),
-                    Expression.parse(sub[4:])
-                )
+            raise IllegalStateError
 
-        if instruction is None:
-            raise NotImplementedError
+        raw_instruction = Line.get_subtree(sub[0:])
+        raw_instruction_block = sub[len(raw_instruction) + 1:]
 
-        return InstructionBlock(instruction, InstructionBlock.parse(lines[len(sub) + 2:]))
+        return InstructionBlock(
+            Operation.parse(raw_instruction),
+            InstructionBlock.parse(raw_instruction_block)
+        )
 
 
 class Line:
@@ -117,13 +111,12 @@ class Term:
 
     @staticmethod
     def parse(lines: list[Line]) -> "Term":
-        print('term')
-        for line in lines:
-            print(line)
+        term = Line.get_subtree(lines[0:])
+        rest = lines[len(term) + 1:]
 
         return Term(
-            Primary.parse(lines[1]),
-            TermList.parse(lines[2:]) if len(lines) > 2 else None
+            Primary.parse(term[0]),
+            TermList.parse(rest) if len(rest) > 2 else None
         )
 
 
@@ -134,10 +127,12 @@ class ExpressionList:
 
     @staticmethod
     def parse(lines: list[Line]) -> Optional["ExpressionList"]:
-        print('here')
-        for l in lines:
-            print(l)
-        raise NotImplementedError
+        items = Line.get_subtree(lines[0:])
+
+        return ExpressionList(
+            items[0].get_part(0),
+            Expression.parse(items[1:])
+        )
 
 
 @ dataclass
@@ -147,14 +142,15 @@ class Expression:
 
     @staticmethod
     def parse(lines: list[Line]) -> "Expression":
-        t_section = Line.get_subtree(lines[0:])
+        t_section = Line.get_subtree(lines[1:])
         t = Term.parse(t_section)
 
-        e_list_index = len(t_section)
-        if e_list_index + 1 >= len(lines):
+        e_list_index = len(t_section) + 1
+        rest = lines[e_list_index + 1:]
+        if len(rest) <= 2:
             return Expression(t, None)
 
-        return Expression(t, ExpressionList.parse(lines[e_list_index + 1:]))
+        return Expression(t, ExpressionList.parse(rest))
 
 
 @ dataclass
@@ -163,6 +159,20 @@ class Operation(Instruction):
 
     def __init__(self):
         raise NotImplementedError
+
+    @staticmethod
+    def parse(lines: list[Line]) -> "Operation":
+        match(lines[0].value):
+            case '<naredba_pridruzivanja>':
+                assignment = Line.get_subtree(lines)
+                return AssignOperation(
+                    assignment[0].get_part(2),
+                    Expression.parse(assignment[2:])
+                )
+            case '<za_petlja>':
+                raise NotImplementedError
+            case _:
+                raise NotImplementedError
 
 
 @ dataclass
@@ -177,18 +187,33 @@ class ForLoopOperation(Operation):
     block: InstructionBlock
 
 
+class AST_parser:
+    def __init__(self, lines: list[str]):
+        if len(lines) <= 2:
+            raise IllegalStateError("Invalid input")
+
+        self.lines = [Line(line) for line in lines]
+        if self.lines[0].value != "<program>":
+            raise IllegalStateError("Invalid input")
+
+    def run(self) -> InstructionBlock:
+        block = InstructionBlock.parse(self.lines[1:])
+        if block is None:
+            raise IllegalStateError("Invalid input")
+
+        return block
+
+
 class FRISC_generator:
     def __init__(self, input):
         self.input = input
         self.raw_lines = input.splitlines()
-        self.lines = [Line(line) for line in self.raw_lines]
 
     def run(self, output_to_file=True):
-        if len(self.lines) <= 2:
-            raise IllegalStateError("Invalid input")
+        parser = AST_parser(self.raw_lines)
+        root = parser.run()
 
-        root = InstructionBlock.parse(self.lines[2:])
-
+        # pprint.pprint(root)
         print(root)
 
 
