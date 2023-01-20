@@ -3,28 +3,20 @@
 	
 	; AssignOperation
 	MOVE %D 3, R0
-	PUSH R0
-	POP R0
 	STORE R0, (var_x)
 	
 	; AssignOperation
 	MOVE %D 5, R0
-	PUSH R0
-	POP R0
 	STORE R0, (var_y)
 	
 	; AssignOperation
 	MOVE %D 0, R0
-	PUSH R0
-	POP R0
 	STORE R0, (var_rez)
 	
 	; FOR_START
 	MOVE %D 1, R0
-	PUSH R0
-	POP R0
-	STORE R0, (var_FOR_x_4313437648)
-FOR_x_4313437648 ; FOR LOOP
+	STORE R0, (var_FOR_x_4347518624)
+FOR_x_4347518624 ; FOR LOOP
 	; block
 	; AssignOperation
 	LOAD R0, (var_rez)
@@ -39,15 +31,15 @@ FOR_x_4313437648 ; FOR LOOP
 	STORE R0, (var_rez)
 	
 	; condition
-	LOAD R0, (var_FOR_x_4313437648)
+	LOAD R0, (var_FOR_x_4347518624)
 	ADD R0, 1, R0
-	STORE R0, (var_FOR_x_4313437648)
+	STORE R0, (var_FOR_x_4347518624)
 	LOAD R0, (var_y)
 	PUSH R0
-	LOAD R0, (var_FOR_x_4313437648)
+	LOAD R0, (var_FOR_x_4347518624)
 	POP R1
 	CMP R0, R1
-	JP_SLE FOR_x_4313437648
+	JP_SLE FOR_x_4347518624
 	; FOR_END
 	
 	; AssignOperation
@@ -70,4 +62,4 @@ FOR_x_4313437648 ; FOR LOOP
 var_rez DW 0
 var_x DW 0
 var_y DW 0
-var_FOR_x_4313437648 DW 0
+var_FOR_x_4347518624 DW 0
