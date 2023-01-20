@@ -22,8 +22,6 @@ class InstructionBlock:
     block: Optional["InstructionBlock"]
     type: Literal["raw", "flattened"] = field(default="raw")
 
-    _instructions: list[Instruction] = field(init=False)
-
     @staticmethod
     def parse(lines: list["Line"]) -> "InstructionBlock | None":
         sub = Line.get_subtree(lines[0:])
@@ -42,18 +40,11 @@ class InstructionBlock:
             type="raw"
         )
 
-    def flatten(self) -> list[Instruction]:
+    def instructions(self) -> list[Instruction]:
         if self.block is None:
             return [self.instruction]
 
-        return [self.instruction] + self.block.flatten()
-
-    @property
-    def instructions(self) -> list[Instruction]:
-        if self.type == "raw":
-            self._instructions = self.flatten()
-
-        return self._instructions
+        return [self.instruction] + self.block.instructions()
 
 
 class Line:
@@ -73,6 +64,8 @@ class Line:
             return "ope"
         elif self.value.startswith('BROJ'):
             return "num"
+        elif self.value.startswith('KR_'):
+            return 'for'
         elif self.value == '$':
             return 'non'
 
@@ -100,6 +93,7 @@ class Line:
 class Primary:
     value: str
     type: Literal["idn", "num"]
+    prefix: str | None = field(default=None)
 
     def to_asm(self) -> list[str]:
         if self.type == "idn":
@@ -108,12 +102,17 @@ class Primary:
         return [f"MOVE %D {self.value}, R0"]
 
     @staticmethod
-    def parse(line: Line) -> "Primary":
-        p_type = line.type()
+    def parse(lines: list[Line]) -> "Primary":
+        if len(lines) != 1:
+            tmp = Primary.parse(lines[2:])
+            tmp.prefix = lines[0].get_part(2)
+            return tmp
+
+        p_type = lines[0].type()
         if p_type not in ["idn", "num"]:
             raise IllegalStateError(f"Invalid primary type: {p_type}")
 
-        return Primary(line.get_part(2), p_type)  # type: ignore
+        return Primary(lines[0].get_part(2), p_type)  # type: ignore
 
 
 @ dataclass
@@ -161,7 +160,7 @@ class Term:
         rest = lines[len(term) + 1:]
 
         return Term(
-            Primary.parse(term[0]),
+            Primary.parse(term),
             TermList.parse(rest) if len(rest) > 2 else None
         )
 
@@ -211,14 +210,6 @@ class Expression:
             *self.e_list.to_asm(),
         ]
 
-        # return f"""
-        # {self.term.to_asm()}
-        # PUSH R0
-        # {self.e_list.to_asm()}
-        # POP R1
-        # {self.e_list.op} R0, R1, R0
-        # """
-
     @staticmethod
     def parse(lines: list[Line]) -> "Expression":
         t_section = Line.get_subtree(lines[1:])
@@ -249,7 +240,22 @@ class Operation(Instruction):
                     Expression.parse(assignment[2:])
                 )
             case '<za_petlja>':
-                raise NotImplementedError
+                inside = Line.get_subtree(lines)
+
+                from_i = -1
+                to_i = -1
+                for i, l in enumerate(inside):
+                    if l.get_part(0) == 'KR_DO':
+                        from_i = i
+                    elif l.get_part(0) == '<lista_naredbi>':
+                        to_i = i
+                        break
+
+                range_from = Expression.parse(inside[3:from_i])
+                range_to = Expression.parse(inside[from_i+1:to_i])
+                block = InstructionBlock.parse(lines[to_i+1:-1])
+
+                return ForLoopOperation(lines[2].get_part(2), range_from, range_to, block)
             case _:
                 raise NotImplementedError
 
@@ -264,15 +270,47 @@ class AssignOperation(Operation):
         return [
             *calc_expression,
             f"POP R0",
-            f"STORE R0, (var_{self.idn})"
+            f"STORE R0, ({self.get_symbol()})"
         ]
+
+    def get_symbol(self) -> str:
+        return f"var_{self.idn}"
 
 
 @ dataclass
 class ForLoopOperation(Operation):
     range_from: Expression
     range_to: Expression
-    block: InstructionBlock
+    block: InstructionBlock | None
+
+    def __init__(self, idn: str, range_from: Expression, range_to: Expression, block: InstructionBlock | None, *args, **kwargs):
+        self.idn = idn
+        self.range_from = range_from
+        self.range_to = range_to
+        self.block = block
+
+        self.identifier = f"FOR_{self.idn}_{id(self)}"
+        self.iterator = AssignOperation(self.identifier, self.range_from)
+
+    def get_init(self) -> list[str]:
+        return [
+            *self.iterator.to_asm(),
+            f"{self.identifier} ; FOR LOOP ;--"
+        ]
+
+    def get_condition(self) -> list[str]:
+        return [
+            f'LOAD R0, ({self.iterator.get_symbol()})',
+            'ADD R0, 1, R0',
+            f'STORE R0, ({self.iterator.get_symbol()})',
+
+            *self.range_to.to_asm(),
+
+            f'LOAD R0, ({self.iterator.get_symbol()})',
+            'POP R1',
+            'CMP R0, R1',
+            f'JP_SLE {self.identifier}',
+        ]
 
 
 class AST_parser:
@@ -296,44 +334,69 @@ class FRISC_generator:
     def __init__(self, input):
         self.input = input
         self.raw_lines = input.splitlines()
+        self.parser = AST_parser(self.raw_lines)
+        self.root = self.parser.run()
 
-    def run(self):
-        parser = AST_parser(self.raw_lines)
-        root = parser.run()
+        self.code = [
+            '; Generated by FRISC generator',
+            'MOVE 40000, R7 ; stack pointer',
+            '',
+        ]
 
-        code = []
-        code.append('; Generated by FRISC generator')
-        code.append('MOVE 40000, R7 ; stack pointer')
-        code.append('')
+        self.variables: list[str] = ['var_rez']
 
-        for instruction in root.instructions:
-            asm = instruction.to_asm()
-            code.append(f"; {instruction.__class__.__name__}")
-            code.extend(asm)
-            code.append("")
+    def handle_instructions(self, instructions: list[Instruction], s=0):
+        for instruction in instructions:
+            if isinstance(instruction, ForLoopOperation) and instruction.block is not None:
+                self.code.append(f"; FOR_START")
+                self.code.extend(instruction.get_init())
 
-        code.append('LOAD R6, (var_rez)')
-        code.append('HALT')
-        code.append('')
+                self.code.append('; block')
+                self.handle_instructions(instruction.block.instructions(), s+1)
 
-        code.append('; Global variables')
-        code.append('var_rez DW 0')
-        code.append('var_x DW 0')
+                self.code.append(f"; condition")
+                self.code.extend(instruction.get_condition())
 
-        for line in code:
-            print(line)
+                self.code.append(f"; FOR_END")
+                self.code.append('')
+
+                self.variables.append(instruction.iterator.get_symbol())
+                continue
+
+            if isinstance(instruction, AssignOperation) and instruction.get_symbol() not in self.variables:
+                self.variables.append(instruction.get_symbol())
+
+            self.code.append(f"; {instruction.__class__.__name__}")
+            self.code.extend(instruction.to_asm())
+            self.code.append('')
+
+    def run(self, print_to_stdout=False):
+        self.handle_instructions(self.root.instructions())
+        self.code.append('')
+
+        self.code.append('LOAD R6, (var_rez)')
+        self.code.append('HALT')
+        self.code.append('')
+
+        self.code.append('; Global variables')
+        for var in self.variables:
+            self.code.append(f"{var} DW 0 ;--")
+
+        # self.code.append('var_rez DW 0 ;--')
+        # self.code.append('var_x DW 0 ;--')
+        # self.code.append('var_z DW 0 ;--')
+        # self.code.append('var_y DW 0 ;--')
+        # self.code.append('var_i DW 0 ;--')
 
         with open('program.frisc', 'w') as f:
-            mode = 'tabbed'
-            for line in code:
-                if mode == 'tabbed':
-                    print(f"\t{line}", file=f)
-                else:
-                    print(line, file=f)
+            for raw_line in self.code:
+                indent = '' if raw_line.endswith('--') else '\t'
+                line = f"{indent}{raw_line.split(';--')[0].strip()}"
 
-                if line == '; Global variables':
-                    mode = 'normal'
+                print(line, file=f)
+                if print_to_stdout:
+                    print(line)
 
 
 if __name__ == '__main__':
-    FRISC_generator(sys.stdin.read()).run()
+    FRISC_generator(sys.stdin.read()).run(print_to_stdout=True)

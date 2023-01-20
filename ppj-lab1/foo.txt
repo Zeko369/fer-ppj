@@ -1,0 +1,7 @@
+x = 3
+y = 5
+rez = 0
+za x od 1 do y
+    rez = rez + x
+az
+rez = rez + x

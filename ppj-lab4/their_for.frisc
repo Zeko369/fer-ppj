@@ -1,0 +1,73 @@
+    MOVE 40000, R7 ; init stog
+    ; 3
+    MOVE %D 3, R0
+    PUSH R0
+    ; x = 3
+    POP R0
+    STORE R0, (V0)
+    ; 5
+    MOVE %D 5, R0
+    PUSH R0
+    ; y = 5
+    POP R0
+    STORE R0, (V1)
+    ; 0
+    MOVE %D 0, R0
+    PUSH R0
+    ; rez = 0
+    POP R0
+    STORE R0, (V2)
+    ; 1
+    MOVE %D 1, R0
+    PUSH R0
+    ; x od 1
+    POP R0
+    STORE R0, (V3)
+    ; rez
+L0 LOAD R0, (V2)
+    PUSH R0
+    ; x
+    LOAD R0, (V3)
+    PUSH R0
+    ; rez + x
+    POP R1
+    POP R0
+    ADD R0, R1, R2
+    PUSH R2
+    ; rez = rez + x
+    POP R0
+    STORE R0, (V2)
+    ; inkrement x
+    LOAD R0, (V3)
+    ADD R0, 1, R0
+    STORE R0, (V3)
+    ; y
+    LOAD R0, (V1)
+    PUSH R0
+    ; x do y
+    LOAD R0, (V3)
+    POP R1
+    CMP R0, R1
+    JP_SLE L0
+    ; rez
+    LOAD R0, (V2)
+    PUSH R0; rez
+    ; x
+    LOAD R0, (V0)
+    PUSH R0
+    ; rez + x
+    POP R1
+    POP R0
+    ADD R0, R1, R2
+    PUSH R2
+    ; rez = rez + x
+    POP R0
+    STORE R0, (V2)
+    ; "vrati" rez
+    LOAD R6, (V2)
+    HALT
+; varijable
+V0 DW 0 ; x
+V1 DW 0 ; y
+V2 DW 0 ; rez
+V3 DW 0 ; x L0
