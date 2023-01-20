@@ -93,13 +93,13 @@ class Line:
 class Primary:
     value: str
     type: Literal["idn", "num"]
-    prefix: str | None = field(default=None)
+    prefix: str = field(default="")
 
     def to_asm(self) -> list[str]:
         if self.type == "idn":
             return [f"LOAD R0, (var_{self.value})"]
 
-        return [f"MOVE %D {self.value}, R0"]
+        return [f"MOVE %D {self.prefix}{self.value}, R0"]
 
     @staticmethod
     def parse(lines: list[Line]) -> "Primary":
@@ -265,6 +265,12 @@ class AssignOperation(Operation):
     expression: Expression
 
     def to_asm(self) -> list[str]:
+        if self.expression.e_list is None and self.expression.term.t_list is None:
+            return [
+                *self.expression.term.primary.to_asm(),
+                f"STORE R0, ({self.get_symbol()})"
+            ]
+
         calc_expression = self.expression.to_asm()
 
         return [
