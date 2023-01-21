@@ -6,6 +6,7 @@ $.verbose = false;
 
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
+import c from "chalk";
 
 let passed = 0;
 const failed = [];
@@ -18,7 +19,7 @@ for (const file of files) {
   try {
     await $`python3 ./FRISCGenerator.py ./tests/${file}/a.frisc < ./tests/${file}/test.in`;
   } catch (err) {
-    console.log(`Failed to generate frisc code`);
+    console.log(c.red(`Failed to generate frisc code`));
     errored.push(file);
     continue;
   }
@@ -27,21 +28,24 @@ for (const file of files) {
 
   try {
     await $`diff ./tests/${file}/my.out ./tests/${file}/test.out`;
-    console.log("Passed");
+    console.log(c.green("Passed"));
     passed++;
   } catch (error) {
-    console.log(`Test ${file} failed`);
+    console.log(c.red(`Test ${file} failed`));
     failed.push(file);
   }
 }
 
 console.log("");
-console.log(`Passed ${passed} / ${files.length} tests`);
+console.log(c.bold(`Passed ${passed} / ${files.length} tests`));
+console.log("");
 
 errored.forEach((file) => {
-  console.log(`Compiler errored [${file}] -> \nnr compiler:watch ./tests/${file}/test.in`);
+  console.log(`${c.bold("Compiler errored")} [${file}]:`);
+  console.log(`nnr compiler:watch ./tests/${file}/test.in`);
 });
 
 failed.forEach((file) => {
-  console.log(`Runtime wrong [${file}] -> \nnr compiler:watch ./tests/${file}/test.in`);
+  console.log(`${c.bold("Runtime wrong")} [${file}]:`);
+  console.log(`nnr compiler:watch ./tests/${file}/test.in`);
 });
