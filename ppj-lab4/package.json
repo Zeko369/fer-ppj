@@ -2,9 +2,9 @@
   "scripts": {
     "compiler": "python3 ./FRISCGenerator.py < program.txt",
     "compiler:watch": "nodemon --watch ./FRISCGenerator.py --exec yarn compiler",
-    "vm": "cat ./program.frisc | node vm/main.js",
+    "vm": "node vm/main.js < ./program.frisc",
     "vm:watch": "nodemon --watch ./program.frisc --exec yarn vm",
-    "test": "zx ./test.js"
+    "test": "zx ./test.mjs"
   },
   "dependencies": {
     "zx": "^7.1.1"

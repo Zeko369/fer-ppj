@@ -511,7 +511,7 @@ class FRISC_generator:
             self.code.extend(instruction.to_asm(scope))
             self.code.append('')
 
-    def run(self, print_to_stdout=False):
+    def run(self, output_file: str, print_to_stdout=False):
         self.handle_instructions(self.root.instructions())
         self.code.append('')
 
@@ -526,7 +526,7 @@ class FRISC_generator:
         self.code.append('')
         self.code.extend(MULTIPLY_AND_DIVIDE_OPERATIONS.splitlines())
 
-        with open('program.frisc', 'w') as f:
+        with open(output_file, 'w') as f:
             for raw_line in self.code:
                 indent = '' if raw_line.endswith('--') else '\t'
                 line = f"{indent}{raw_line.split(';--')[0].strip()}"
@@ -537,4 +537,5 @@ class FRISC_generator:
 
 
 if __name__ == '__main__':
-    FRISC_generator(sys.stdin.read()).run(print_to_stdout=False)
+    name = 'a.frisc' if len(sys.argv) < 2 else sys.argv[1]
+    FRISC_generator(sys.stdin.read()).run(name, print_to_stdout=False)
