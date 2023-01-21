@@ -274,7 +274,7 @@ class Term:
             ]
 
         return [
-            f"LOAD R0, ({store.get(self.primary.value, scope)})",
+            *self.primary.to_asm(scope),
             *self.t_list.to_asm(scope)
         ]
 
