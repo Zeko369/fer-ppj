@@ -3,6 +3,10 @@
     "compiler": "python3 ./FRISCGenerator.py < program.txt",
     "compiler:watch": "nodemon --watch ./FRISCGenerator.py --exec yarn compiler",
     "vm": "cat ./program.frisc | node vm/main.js",
-    "vm:watch": "nodemon --watch ./program.frisc --exec yarn vm"
+    "vm:watch": "nodemon --watch ./program.frisc --exec yarn vm",
+    "test": "zx ./test.js"
+  },
+  "dependencies": {
+    "zx": "^7.1.1"
   }
 }
