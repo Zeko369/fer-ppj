@@ -42,10 +42,10 @@ console.log("");
 
 errored.forEach((file) => {
   console.log(`${c.bold("Compiler errored")} [${file}]:`);
-  console.log(`nnr compiler:watch ./tests/${file}/test.in`);
+  console.log(`nr compiler:watch ./tests/${file}/test.in`);
 });
 
 failed.forEach((file) => {
   console.log(`${c.bold("Runtime wrong")} [${file}]:`);
-  console.log(`nnr compiler:watch ./tests/${file}/test.in`);
+  console.log(`nr compiler:watch ./tests/${file}/test.in`);
 });
