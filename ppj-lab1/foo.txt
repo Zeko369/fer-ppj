@@ -1,7 +1,4 @@
-x = 3
-y = 5
-rez = 0
-za x od 1 do y
-    rez = rez + x
+rez = 1
+za x od 1 do 10
+    rez = rez * x
 az
-rez = rez + x

@@ -2,64 +2,88 @@
 	MOVE 40000, R7 ; stack pointer
 	
 	; AssignOperation
-	MOVE %D 3, R0
-	STORE R0, (var_x)
-	
-	; AssignOperation
-	MOVE %D 5, R0
-	STORE R0, (var_y)
-	
-	; AssignOperation
-	MOVE %D 0, R0
-	STORE R0, (var_rez)
+	MOVE %D 1, R0
+	STORE R0, (GLOBAL_RESULT)
 	
 	; FOR_START
 	MOVE %D 1, R0
-	STORE R0, (var_FOR_x_4347518624)
-FOR_x_4347518624 ; FOR LOOP
+	STORE R0, (FOR_x_4303864208_var)
+FOR_x_4303864208 ; FOR LOOP
 	; block
 	; AssignOperation
-	LOAD R0, (var_rez)
+	LOAD R0, (GLOBAL_RESULT)
 	PUSH R0
-	LOAD R0, (var_x)
+	LOAD R0, (FOR_x_4303864208_var)
 	PUSH R0
-	POP R1
+	CALL MUL
 	POP R0
-	ADD R0, R1, R2
-	PUSH R2
-	POP R0
-	STORE R0, (var_rez)
+	STORE R0, (GLOBAL_RESULT)
 	
 	; condition
-	LOAD R0, (var_FOR_x_4347518624)
+	LOAD R0, (FOR_x_4303864208_var)
 	ADD R0, 1, R0
-	STORE R0, (var_FOR_x_4347518624)
-	LOAD R0, (var_y)
+	STORE R0, (FOR_x_4303864208_var)
+	MOVE %D 10, R0
 	PUSH R0
-	LOAD R0, (var_FOR_x_4347518624)
+	LOAD R0, (FOR_x_4303864208_var)
 	POP R1
 	CMP R0, R1
-	JP_SLE FOR_x_4347518624
+	JP_SLE FOR_x_4303864208
 	; FOR_END
 	
-	; AssignOperation
-	LOAD R0, (var_rez)
-	PUSH R0
-	LOAD R0, (var_x)
-	PUSH R0
-	POP R1
-	POP R0
-	ADD R0, R1, R2
-	PUSH R2
-	POP R0
-	STORE R0, (var_rez)
 	
-	
-	LOAD R6, (var_rez)
+	LOAD R6, (GLOBAL_RESULT)
 	HALT
 	
 	; Global variables
-var_rez DW 0
-var_x DW 0
-var_y DW 0
-var_FOR_x_4347518624 DW 0
+GLOBAL_RESULT DW 0
+FOR_x_4303864208_var DW 0
+	
+	
+MD_SGN MOVE 0, R6
+	XOR R0, 0, R0
+	JP_P MD_TST1
+	XOR R0, -1, R0
+	ADD R0, 1, R0
+	MOVE 1, R6
+MD_TST1 XOR R1, 0, R1
+	JP_P MD_SGNR
+	XOR R1, -1, R1
+	ADD R1, 1, R1
+	XOR R6, 1, R6
+MD_SGNR RET
+MD_INIT POP R4 ; MD_INIT ret addr
+	POP R3 ; M/D ret addr
+	POP R1 ; op2
+	POP R0 ; op1
+	CALL MD_SGN
+	MOVE 0, R2 ; init rezultata
+	PUSH R4 ; MD_INIT ret addr
+	RET
+MD_RET XOR R6, 0, R6 ; predznak?
+	JP_Z MD_RET1
+	XOR R2, -1, R2 ; promijeni predznak
+	ADD R2, 1, R2
+MD_RET1 POP R4 ; MD_RET ret addr
+	PUSH R2 ; rezultat
+	PUSH R3 ; M/D ret addr
+	PUSH R4 ; MD_RET ret addr
+	RET
+MUL CALL MD_INIT
+	XOR R1, 0, R1
+	JP_Z MUL_RET ; op2 == 0
+	SUB R1, 1, R1
+MUL_1 ADD R2, R0, R2
+	SUB R1, 1, R1
+	JP_NN MUL_1 ; >= 0?
+MUL_RET CALL MD_RET
+	RET
+DIV CALL MD_INIT
+	XOR R1, 0, R1
+	JP_Z DIV_RET ; op2 == 0
+DIV_1 ADD R2, 1, R2
+	SUB R0, R1, R0
+	JP_NN DIV_1
+	SUB R2, 1, R2
+DIV_RET CALL MD_RET
+	RET

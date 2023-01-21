@@ -1,18 +1,133 @@
+import pprint
 import re
 import sys
 from typing import Literal, Optional
 from dataclasses import dataclass, field
 
 
+MULTIPLY_AND_DIVIDE_OPERATIONS = """
+MD_SGN MOVE 0, R6 ;--
+    XOR R0, 0, R0
+    JP_P MD_TST1
+    XOR R0, -1, R0
+    ADD R0, 1, R0
+    MOVE 1, R6
+MD_TST1 XOR R1, 0, R1 ;--
+    JP_P MD_SGNR
+    XOR R1, -1, R1
+    ADD R1, 1, R1
+    XOR R6, 1, R6
+MD_SGNR RET ;--
+MD_INIT POP R4 ; MD_INIT ret addr ;--
+    POP R3 ; M/D ret addr
+    POP R1 ; op2
+    POP R0 ; op1
+    CALL MD_SGN
+    MOVE 0, R2 ; init rezultata
+    PUSH R4 ; MD_INIT ret addr
+    RET
+MD_RET XOR R6, 0, R6 ; predznak? ;--
+    JP_Z MD_RET1
+    XOR R2, -1, R2 ; promijeni predznak
+    ADD R2, 1, R2
+MD_RET1 POP R4 ; MD_RET ret addr ;--
+    PUSH R2 ; rezultat
+    PUSH R3 ; M/D ret addr
+    PUSH R4 ; MD_RET ret addr
+    RET
+MUL CALL MD_INIT ;--
+    XOR R1, 0, R1
+    JP_Z MUL_RET ; op2 == 0
+    SUB R1, 1, R1
+MUL_1 ADD R2, R0, R2 ;--
+    SUB R1, 1, R1
+    JP_NN MUL_1 ; >= 0?
+MUL_RET CALL MD_RET ;--
+    RET
+DIV CALL MD_INIT ;--
+    XOR R1, 0, R1
+    JP_Z DIV_RET ; op2 == 0
+DIV_1 ADD R2, 1, R2 ;--
+    SUB R0, R1, R0
+    JP_NN DIV_1
+    SUB R2, 1, R2
+DIV_RET CALL MD_RET ;--
+    RET
+"""
+
+
 class IllegalStateError(Exception):
     pass
+
+
+class ScopeStore:
+    def __init__(self) -> None:
+        self.variables = {}
+        self.scopes: dict[str, ScopeStore] = {}
+
+    def list(self) -> list[str]:
+        return [
+            *self.variables.values(),
+            *[v for s in self.scopes.values() for v in s.list()]
+        ]
+
+
+class VariableStore:
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.store = ScopeStore()
+        self.store.variables = {'rez': 'GLOBAL_RESULT'}
+
+    def add(self, name: str, path: list[str], idn: str):
+        if len(path) == 0:
+            self.store.variables[name] = idn
+            return
+        pointer = self.store
+        for scope in path:
+            if scope not in pointer.scopes:
+                pointer.scopes[scope] = ScopeStore()
+            pointer = pointer.scopes[scope]
+
+        pointer.variables[name] = idn
+
+    def exists(self, name: str, path: list[str] = []):
+        try:
+            self.get(name, path)
+            return True
+        except KeyError:
+            return False
+
+    def get(self, name: str, path: list[str] = []):
+        if len(path) == 0:
+            return self.store.variables[name]
+
+        for s in range(len(path), -1, -1):
+            pointer = self.store
+            for scope in path[:s]:
+                if scope not in pointer.scopes:
+                    break
+
+                pointer = pointer.scopes[scope]
+
+            if name in pointer.variables:
+                return pointer.variables[name]
+
+        raise KeyError(f"Variable {name} not found in scope {path}")
+
+    def list(self):
+        return self.store.list()
+
+
+store = VariableStore()
 
 
 class Instruction:
     def __init__(self):
         raise NotImplementedError
 
-    def to_asm(self) -> str:
+    def to_asm(self, scope: list[str]) -> str:
         raise NotImplementedError
 
 
@@ -95,9 +210,9 @@ class Primary:
     type: Literal["idn", "num"]
     prefix: str = field(default="")
 
-    def to_asm(self) -> list[str]:
+    def to_asm(self, scope: list[str]) -> list[str]:
         if self.type == "idn":
-            return [f"LOAD R0, (var_{self.value})"]
+            return [f"LOAD R0, ({store.get(self.value, scope)})"]
 
         return [f"MOVE %D {self.prefix}{self.value}, R0"]
 
@@ -120,21 +235,30 @@ class TermList:
     op: str
     term: "Term"
 
-    def to_asm(self) -> str:
-        return f"""
-        PUSH R0
-        PERO
-        {self.term.to_asm()}
-        POP R1
-        {self.op} R0, R1, R0
-        """
+    def to_asm(self, scope: list[str]) -> list[str]:
+        return [
+            'PUSH R0',
+            *self.term.to_asm(scope),
+            *self.get_op(),
+        ]
+
+    def get_op(self) -> list[str]:
+        pops = []
+
+        match self.op:
+            case "OP_PUTA":
+                return [*pops, "CALL MUL"]
+            case _:
+                raise NotImplementedError
 
     @staticmethod
     def parse(lines: list[Line]) -> Optional["TermList"]:
-        if len(lines) <= 2:
-            return None
+        items = Line.get_subtree(lines[0:])
 
-        raise NotImplementedError
+        return TermList(
+            items[0].get_part(0),
+            Term.parse(items[2:])
+        )
 
 
 @ dataclass
@@ -142,16 +266,16 @@ class Term:
     primary: "Primary"
     t_list: TermList | None
 
-    def to_asm(self) -> list[str]:
+    def to_asm(self, scope: list[str]) -> list[str]:
         if self.t_list is None:
             return [
-                *self.primary.to_asm(),
+                *self.primary.to_asm(scope),
                 f"PUSH R0"
             ]
 
         return [
-            f"LOAD R0, {self.primary.value}",
-            self.t_list.to_asm()
+            f"LOAD R0, ({store.get(self.primary.value, scope)})",
+            *self.t_list.to_asm(scope)
         ]
 
     @staticmethod
@@ -170,19 +294,20 @@ class ExpressionList:
     op: str
     expression: "Expression"
 
-    def to_asm(self) -> list[str]:
+    def to_asm(self, scope: list[str]) -> list[str]:
         return [
-            *self.expression.to_asm(),
+            *self.expression.to_asm(scope),
             *self.get_op(),
             "PUSH R2",
         ]
 
     def get_op(self) -> list[str]:
+        pops = ["POP R1", "POP R0"]
         match self.op:
             case "OP_PLUS":
-                return ["POP R1", "POP R0", "ADD R0, R1, R2"]
+                return [*pops, "ADD R0, R1, R2"]
             case "OP_MINUS":
-                return ["POP R1", "POP R0", "SUB R0, R1, R2"]
+                return [*pops, "SUB R0, R1, R2"]
             case _:
                 raise NotImplementedError
 
@@ -201,13 +326,13 @@ class Expression:
     term: Term
     e_list: ExpressionList | None
 
-    def to_asm(self) -> list[str]:
+    def to_asm(self, scope: list[str]) -> list[str]:
         if self.e_list is None:
-            return self.term.to_asm()
+            return self.term.to_asm(scope)
 
         return [
-            *self.term.to_asm(),
-            *self.e_list.to_asm(),
+            *self.term.to_asm(scope),
+            *self.e_list.to_asm(scope),
         ]
 
     @staticmethod
@@ -264,23 +389,23 @@ class Operation(Instruction):
 class AssignOperation(Operation):
     expression: Expression
 
-    def to_asm(self) -> list[str]:
+    def to_asm(self, scope: list[str]) -> list[str]:
         if self.expression.e_list is None and self.expression.term.t_list is None:
             return [
-                *self.expression.term.primary.to_asm(),
-                f"STORE R0, ({self.get_symbol()})"
+                *self.expression.term.primary.to_asm(scope),
+                f"STORE R0, ({self.get_symbol(scope)})"
             ]
 
-        calc_expression = self.expression.to_asm()
+        calc_expression = self.expression.to_asm(scope)
 
         return [
             *calc_expression,
             f"POP R0",
-            f"STORE R0, ({self.get_symbol()})"
+            f"STORE R0, ({self.get_symbol(scope)})"
         ]
 
-    def get_symbol(self) -> str:
-        return f"var_{self.idn}"
+    def get_symbol(self, scope: list[str]) -> str:
+        return store.get(self.idn, scope)
 
 
 @ dataclass
@@ -295,27 +420,27 @@ class ForLoopOperation(Operation):
         self.range_to = range_to
         self.block = block
 
-        self.identifier = f"FOR_{self.idn}_{id(self)}"
-        self.iterator = AssignOperation(self.identifier, self.range_from)
+        self.uuid = f"FOR_{self.idn}_{id(self)}"
+        self.iterator = AssignOperation(self.idn, self.range_from)
 
-    def get_init(self) -> list[str]:
+    def get_init(self, scope: list[str]) -> list[str]:
         return [
-            *self.iterator.to_asm(),
-            f"{self.identifier} ; FOR LOOP ;--"
+            *self.iterator.to_asm(scope),
+            f"{self.uuid} ; FOR LOOP ;--"
         ]
 
-    def get_condition(self) -> list[str]:
+    def get_condition(self, scope: list[str]) -> list[str]:
         return [
-            f'LOAD R0, ({self.iterator.get_symbol()})',
+            f'LOAD R0, ({self.iterator.get_symbol(scope)})',
             'ADD R0, 1, R0',
-            f'STORE R0, ({self.iterator.get_symbol()})',
+            f'STORE R0, ({self.iterator.get_symbol(scope)})',
 
-            *self.range_to.to_asm(),
+            *self.range_to.to_asm(scope),
 
-            f'LOAD R0, ({self.iterator.get_symbol()})',
+            f'LOAD R0, ({self.iterator.get_symbol(scope)})',
             'POP R1',
             'CMP R0, R1',
-            f'JP_SLE {self.identifier}',
+            f'JP_SLE {self.uuid}',
         ]
 
 
@@ -346,53 +471,60 @@ class FRISC_generator:
         self.code = [
             '; Generated by FRISC generator',
             'MOVE 40000, R7 ; stack pointer',
-            '',
+            ''
         ]
 
-        self.variables: list[str] = ['var_rez']
-
-    def handle_instructions(self, instructions: list[Instruction], s=0):
+    def handle_instructions(self, instructions: list[Instruction], scope=[]):
         for instruction in instructions:
-            if isinstance(instruction, ForLoopOperation) and instruction.block is not None:
-                self.code.append(f"; FOR_START")
-                self.code.extend(instruction.get_init())
+            if isinstance(instruction, ForLoopOperation):
+                if instruction.block is None:
+                    continue
 
-                self.code.append('; block')
-                self.handle_instructions(instruction.block.instructions(), s+1)
+                inner_path = [*scope, instruction.uuid]
+
+                store.add(instruction.idn, inner_path,
+                          f"{instruction.uuid}_var")
+
+                self.code.append(f"; FOR_START")
+                self.code.extend(instruction.get_init(inner_path))
+
+                self.code.append(f'; block')
+                self.handle_instructions(
+                    instruction.block.instructions(),
+                    inner_path
+                )
 
                 self.code.append(f"; condition")
-                self.code.extend(instruction.get_condition())
+                self.code.extend(instruction.get_condition(inner_path))
 
                 self.code.append(f"; FOR_END")
                 self.code.append('')
 
-                self.variables.append(instruction.iterator.get_symbol())
                 continue
 
-            if isinstance(instruction, AssignOperation) and instruction.get_symbol() not in self.variables:
-                self.variables.append(instruction.get_symbol())
+            if isinstance(instruction, AssignOperation):
+                if not store.exists(instruction.idn, scope):
+                    unique_path = [*scope, instruction.idn]
+                    store.add(instruction.idn, scope, "__".join(unique_path))
 
             self.code.append(f"; {instruction.__class__.__name__}")
-            self.code.extend(instruction.to_asm())
+            self.code.extend(instruction.to_asm(scope))
             self.code.append('')
 
     def run(self, print_to_stdout=False):
         self.handle_instructions(self.root.instructions())
         self.code.append('')
 
-        self.code.append('LOAD R6, (var_rez)')
+        self.code.append(f'LOAD R6, ({store.get("rez")})')
         self.code.append('HALT')
         self.code.append('')
 
         self.code.append('; Global variables')
-        for var in self.variables:
+        for var in store.list():
             self.code.append(f"{var} DW 0 ;--")
 
-        # self.code.append('var_rez DW 0 ;--')
-        # self.code.append('var_x DW 0 ;--')
-        # self.code.append('var_z DW 0 ;--')
-        # self.code.append('var_y DW 0 ;--')
-        # self.code.append('var_i DW 0 ;--')
+        self.code.append('')
+        self.code.extend(MULTIPLY_AND_DIVIDE_OPERATIONS.splitlines())
 
         with open('program.frisc', 'w') as f:
             for raw_line in self.code:
@@ -405,4 +537,4 @@ class FRISC_generator:
 
 
 if __name__ == '__main__':
-    FRISC_generator(sys.stdin.read()).run(print_to_stdout=True)
+    FRISC_generator(sys.stdin.read()).run(print_to_stdout=False)

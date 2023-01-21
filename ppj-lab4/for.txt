@@ -64,7 +64,7 @@
        <lista_naredbi>
         <naredba>
          <naredba_pridruzivanja>
-          IDN 5 rez
+          IDN 5 tmp
           OP_PRIDRUZI 5 =
           <E>
            <T>
@@ -83,25 +83,38 @@
              <E_lista>
               $
         <lista_naredbi>
-         $
-       KR_AZ 6 az
+         <naredba>
+          <naredba_pridruzivanja>
+           IDN 6 rez
+           OP_PRIDRUZI 6 =
+           <E>
+            <T>
+             <P>
+              IDN 6 tmp
+             <T_lista>
+              $
+            <E_lista>
+             $
+         <lista_naredbi>
+          $
+       KR_AZ 7 az
      <lista_naredbi>
       <naredba>
        <naredba_pridruzivanja>
-        IDN 7 rez
-        OP_PRIDRUZI 7 =
+        IDN 8 rez
+        OP_PRIDRUZI 8 =
         <E>
          <T>
           <P>
-           IDN 7 rez
+           IDN 8 rez
           <T_lista>
            $
          <E_lista>
-          OP_PLUS 7 +
+          OP_PLUS 8 +
           <E>
            <T>
             <P>
-             IDN 7 x
+             IDN 8 x
             <T_lista>
              $
            <E_lista>

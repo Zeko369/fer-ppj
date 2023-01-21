@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "compiler": "python3 ./FRISCGenerator.py < for.txt",
+    "compiler": "python3 ./FRISCGenerator.py < program.txt",
     "compiler:watch": "nodemon --watch ./FRISCGenerator.py --exec yarn compiler",
     "vm": "cat ./program.frisc | node vm/main.js",
     "vm:watch": "nodemon --watch ./program.frisc --exec yarn vm"
