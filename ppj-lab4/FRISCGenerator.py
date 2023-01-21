@@ -248,6 +248,8 @@ class TermList:
         match self.op:
             case "OP_PUTA":
                 return [*pops, "CALL MUL"]
+            case "OP_DIJELI":
+                return [*pops, "CALL DIV"]
             case _:
                 raise NotImplementedError
 
