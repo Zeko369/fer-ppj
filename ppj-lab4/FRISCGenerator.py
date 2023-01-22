@@ -1,7 +1,7 @@
 import re
 import sys
 import pprint
-from typing import Literal, Optional
+from typing import Literal, Optional, List
 from dataclasses import dataclass, field
 
 
@@ -65,7 +65,7 @@ class ScopeStore:
         self.variables = {}
         self.scopes: dict[str, ScopeStore] = {}
 
-    def list(self) -> list[str]:
+    def list(self) -> List[str]:
         return [
             *self.variables.values(),
             *[v for s in self.scopes.values() for v in s.list()]
@@ -80,7 +80,7 @@ class VariableStore:
         self.store = ScopeStore()
         self.store.variables = {'rez': 'GLOBAL_RESULT'}
 
-    def add(self, name: str, path: list[str], idn: str):
+    def add(self, name: str, path: List[str], idn: str):
         if len(path) == 0:
             self.store.variables[name] = idn
             return
@@ -92,14 +92,14 @@ class VariableStore:
 
         pointer.variables[name] = idn
 
-    def exists(self, name: str, path: list[str] = []):
+    def exists(self, name: str, path: List[str] = []):
         try:
             self.get(name, path)
             return True
         except KeyError:
             return False
 
-    def get(self, name: str, path: list[str] = []):
+    def get(self, name: str, path: List[str] = []):
         if len(path) == 0:
             return self.store.variables[name]
 
@@ -127,7 +127,7 @@ class Instruction:
     def __init__(self):
         raise NotImplementedError
 
-    def to_asm(self, scope: list[str]) -> str:
+    def to_asm(self, scope: List[str]) -> str:
         raise NotImplementedError
 
 
@@ -138,7 +138,7 @@ class InstructionBlock:
     type: Literal["raw", "flattened"] = field(default="raw")
 
     @staticmethod
-    def parse(lines: list["Line"]) -> "InstructionBlock | None":
+    def parse(lines: List["Line"]) -> "InstructionBlock | None":
         sub = Line.get_subtree(lines[0:])
         if len(sub) == 1:
             if sub[0].type() == 'non':
@@ -155,7 +155,7 @@ class InstructionBlock:
             type="raw"
         )
 
-    def instructions(self) -> list[Instruction]:
+    def instructions(self) -> List[Instruction]:
         if self.block is None:
             return [self.instruction]
 
@@ -193,7 +193,7 @@ class Line:
         return f"[{self.indent:2}][{self.type()}] {self.value}"
 
     @staticmethod
-    def get_subtree(lines: list["Line"]) -> list["Line"]:
+    def get_subtree(lines: List["Line"]) -> List["Line"]:
         first_index = lines[0].indent
         arr = []
         for line in lines[1:]:
@@ -210,14 +210,14 @@ class Primary:
     type: Literal["idn", "num"]
     prefix: str = field(default="")
 
-    def to_asm(self, scope: list[str]) -> list[str]:
+    def to_asm(self, scope: List[str]) -> List[str]:
         if self.type == "idn":
             return [f"LOAD R0, ({store.get(self.value, scope)})"]
 
         return [f"MOVE %D {self.prefix}{self.value}, R0"]
 
     @staticmethod
-    def parse(lines: list[Line]) -> "Primary":
+    def parse(lines: List[Line]) -> "Primary":
         if len(lines) != 1:
             tmp = Primary.parse(lines[2:])
             tmp.prefix = lines[0].get_part(2)
@@ -235,14 +235,14 @@ class TermList:
     op: str
     term: "Term"
 
-    def to_asm(self, scope: list[str]) -> list[str]:
+    def to_asm(self, scope: List[str]) -> List[str]:
         return [
             'PUSH R0',
             *self.term.to_asm(scope),
             *self.get_op(),
         ]
 
-    def get_op(self) -> list[str]:
+    def get_op(self) -> List[str]:
         pops = []
 
         if self.op == "OP_PUTA":
@@ -253,7 +253,7 @@ class TermList:
             raise NotImplementedError
 
     @staticmethod
-    def parse(lines: list[Line]) -> Optional["TermList"]:
+    def parse(lines: List[Line]) -> Optional["TermList"]:
         items = Line.get_subtree(lines[0:])
 
         return TermList(
@@ -267,7 +267,7 @@ class Term:
     primary: "Primary"
     t_list: TermList | None
 
-    def to_asm(self, scope: list[str]) -> list[str]:
+    def to_asm(self, scope: List[str]) -> List[str]:
         if self.t_list is None:
             return [
                 *self.primary.to_asm(scope),
@@ -280,7 +280,7 @@ class Term:
         ]
 
     @staticmethod
-    def parse(lines: list[Line]) -> "Term":
+    def parse(lines: List[Line]) -> "Term":
         term = Line.get_subtree(lines[0:])
         rest = lines[len(term) + 1:]
 
@@ -295,14 +295,14 @@ class ExpressionList:
     op: str
     expression: "Expression"
 
-    def to_asm(self, scope: list[str]) -> list[str]:
+    def to_asm(self, scope: List[str]) -> List[str]:
         return [
             *self.expression.to_asm(scope),
             *self.get_op(),
             "PUSH R2",
         ]
 
-    def get_op(self) -> list[str]:
+    def get_op(self) -> List[str]:
         pops = ["POP R1", "POP R0"]
         if self.op == "OP_PLUS":
             return [*pops, "ADD R0, R1, R2"]
@@ -312,7 +312,7 @@ class ExpressionList:
             raise NotImplementedError
 
     @staticmethod
-    def parse(lines: list[Line]) -> Optional["ExpressionList"]:
+    def parse(lines: List[Line]) -> Optional["ExpressionList"]:
         items = Line.get_subtree(lines[0:])
 
         return ExpressionList(
@@ -326,7 +326,7 @@ class Expression:
     term: Term
     e_list: ExpressionList | None
 
-    def to_asm(self, scope: list[str]) -> list[str]:
+    def to_asm(self, scope: List[str]) -> List[str]:
         if self.e_list is None:
             return self.term.to_asm(scope)
 
@@ -336,7 +336,7 @@ class Expression:
         ]
 
     @staticmethod
-    def parse(lines: list[Line]) -> "Expression":
+    def parse(lines: List[Line]) -> "Expression":
         t_section = Line.get_subtree(lines[1:])
         t = Term.parse(t_section)
 
@@ -356,7 +356,7 @@ class Operation(Instruction):
         raise NotImplementedError
 
     @staticmethod
-    def parse(lines: list[Line]) -> "Operation":
+    def parse(lines: List[Line]) -> "Operation":
         if lines[0].value == '<naredba_pridruzivanja>':
             assignment = Line.get_subtree(lines)
             return AssignOperation(
@@ -388,7 +388,7 @@ class Operation(Instruction):
 class AssignOperation(Operation):
     expression: Expression
 
-    def to_asm(self, scope: list[str]) -> list[str]:
+    def to_asm(self, scope: List[str]) -> List[str]:
         if self.expression.e_list is None and self.expression.term.t_list is None:
             return [
                 *self.expression.term.primary.to_asm(scope),
@@ -403,7 +403,7 @@ class AssignOperation(Operation):
             f"STORE R0, ({self.get_symbol(scope)})"
         ]
 
-    def get_symbol(self, scope: list[str]) -> str:
+    def get_symbol(self, scope: List[str]) -> str:
         return store.get(self.idn, scope)
 
 
@@ -422,13 +422,13 @@ class ForLoopOperation(Operation):
         self.uuid = f"FOR_{self.idn}_{id(self)}"
         self.iterator = AssignOperation(self.idn, self.range_from)
 
-    def get_init(self, scope: list[str]) -> list[str]:
+    def get_init(self, scope: List[str]) -> List[str]:
         return [
             *self.iterator.to_asm(scope),
             f"{self.uuid} ; FOR LOOP ;--"
         ]
 
-    def get_condition(self, scope: list[str]) -> list[str]:
+    def get_condition(self, scope: List[str]) -> List[str]:
         return [
             f'LOAD R0, ({self.iterator.get_symbol(scope)})',
             'ADD R0, 1, R0',
@@ -444,7 +444,7 @@ class ForLoopOperation(Operation):
 
 
 class AST_parser:
-    def __init__(self, lines: list[str]):
+    def __init__(self, lines: List[str]):
         if len(lines) <= 2:
             raise IllegalStateError("Invalid input")
 
@@ -473,7 +473,7 @@ class FRISC_generator:
             ''
         ]
 
-    def handle_instructions(self, instructions: list[Instruction], scope=[]):
+    def handle_instructions(self, instructions: List[Instruction], scope=[]):
         for instruction in instructions:
             if isinstance(instruction, ForLoopOperation):
                 if instruction.block is None:
