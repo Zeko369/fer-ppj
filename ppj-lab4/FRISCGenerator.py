@@ -1,6 +1,6 @@
-import pprint
 import re
 import sys
+import pprint
 from typing import Literal, Optional
 from dataclasses import dataclass, field
 
@@ -245,13 +245,12 @@ class TermList:
     def get_op(self) -> list[str]:
         pops = []
 
-        match self.op:
-            case "OP_PUTA":
-                return [*pops, "CALL MUL"]
-            case "OP_DIJELI":
-                return [*pops, "CALL DIV"]
-            case _:
-                raise NotImplementedError
+        if self.op == "OP_PUTA":
+            return [*pops, "CALL MUL"]
+        elif self.op == "OP_DIJELI":
+            return [*pops, "CALL DIV"]
+        else:
+            raise NotImplementedError
 
     @staticmethod
     def parse(lines: list[Line]) -> Optional["TermList"]:
@@ -305,13 +304,12 @@ class ExpressionList:
 
     def get_op(self) -> list[str]:
         pops = ["POP R1", "POP R0"]
-        match self.op:
-            case "OP_PLUS":
-                return [*pops, "ADD R0, R1, R2"]
-            case "OP_MINUS":
-                return [*pops, "SUB R0, R1, R2"]
-            case _:
-                raise NotImplementedError
+        if self.op == "OP_PLUS":
+            return [*pops, "ADD R0, R1, R2"]
+        elif self.op == "OP_MINUS":
+            return [*pops, "SUB R0, R1, R2"]
+        else:
+            raise NotImplementedError
 
     @staticmethod
     def parse(lines: list[Line]) -> Optional["ExpressionList"]:
@@ -359,32 +357,31 @@ class Operation(Instruction):
 
     @staticmethod
     def parse(lines: list[Line]) -> "Operation":
-        match(lines[0].value):
-            case '<naredba_pridruzivanja>':
-                assignment = Line.get_subtree(lines)
-                return AssignOperation(
-                    assignment[0].get_part(2),
-                    Expression.parse(assignment[2:])
-                )
-            case '<za_petlja>':
-                inside = Line.get_subtree(lines)
+        if lines[0].value == '<naredba_pridruzivanja>':
+            assignment = Line.get_subtree(lines)
+            return AssignOperation(
+                assignment[0].get_part(2),
+                Expression.parse(assignment[2:])
+            )
+        elif lines[0].value == '<za_petlja>':
+            inside = Line.get_subtree(lines)
 
-                from_i = -1
-                to_i = -1
-                for i, l in enumerate(inside):
-                    if l.get_part(0) == 'KR_DO':
-                        from_i = i
-                    elif l.get_part(0) == '<lista_naredbi>':
-                        to_i = i
-                        break
+            from_i = -1
+            to_i = -1
+            for i, l in enumerate(inside):
+                if l.get_part(0) == 'KR_DO':
+                    from_i = i
+                elif l.get_part(0) == '<lista_naredbi>':
+                    to_i = i
+                    break
 
-                range_from = Expression.parse(inside[3:from_i])
-                range_to = Expression.parse(inside[from_i+1:to_i])
-                block = InstructionBlock.parse(lines[to_i+1:-1])
+            range_from = Expression.parse(inside[3:from_i])
+            range_to = Expression.parse(inside[from_i+1:to_i])
+            block = InstructionBlock.parse(lines[to_i+1:-1])
 
-                return ForLoopOperation(lines[2].get_part(2), range_from, range_to, block)
-            case _:
-                raise NotImplementedError
+            return ForLoopOperation(lines[2].get_part(2), range_from, range_to, block)
+        else:
+            raise NotImplementedError
 
 
 @ dataclass
