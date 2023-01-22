@@ -72,11 +72,9 @@ class ScopeStore:
         ]
 
 
-class VariableStore:
+class GlobalStore:
     def __init__(self):
-        self.reset()
-
-    def reset(self):
+        self.has_multiply_or_divide = False
         self.store = ScopeStore()
         self.store.variables = {'rez': 'GLOBAL_RESULT'}
 
@@ -120,7 +118,7 @@ class VariableStore:
         return self.store.list()
 
 
-store = VariableStore()
+store = GlobalStore()
 
 
 class Instruction:
@@ -244,6 +242,9 @@ class TermList:
 
     def get_op(self) -> List[str]:
         pops = []
+
+        if self.op in ['OP_PUTA', 'OP_DIJELI']:
+            store.has_multiply_or_divide = True
 
         if self.op == "OP_PUTA":
             return [*pops, "CALL MUL"]
@@ -522,8 +523,9 @@ class FRISC_generator:
         for var in store.list():
             self.code.append(f"{var} DW 0 ;--")
 
-        self.code.append('')
-        self.code.extend(MULTIPLY_AND_DIVIDE_OPERATIONS.splitlines())
+        if store.has_multiply_or_divide:
+            self.code.append('')
+            self.code.extend(MULTIPLY_AND_DIVIDE_OPERATIONS.splitlines())
 
         with open(output_file, 'w') as f:
             for raw_line in self.code:
