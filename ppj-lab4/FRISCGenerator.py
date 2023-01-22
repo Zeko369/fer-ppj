@@ -138,7 +138,7 @@ class InstructionBlock:
     type: Literal["raw", "flattened"] = field(default="raw")
 
     @staticmethod
-    def parse(lines: List["Line"]) -> "InstructionBlock | None":
+    def parse(lines: List["Line"]) -> Optional["InstructionBlock"]:
         sub = Line.get_subtree(lines[0:])
         if len(sub) == 1:
             if sub[0].type() == 'non':
@@ -265,7 +265,7 @@ class TermList:
 @ dataclass
 class Term:
     primary: "Primary"
-    t_list: TermList | None
+    t_list: Optional[TermList]
 
     def to_asm(self, scope: List[str]) -> List[str]:
         if self.t_list is None:
@@ -324,7 +324,7 @@ class ExpressionList:
 @ dataclass
 class Expression:
     term: Term
-    e_list: ExpressionList | None
+    e_list: Optional[ExpressionList]
 
     def to_asm(self, scope: List[str]) -> List[str]:
         if self.e_list is None:
@@ -411,9 +411,9 @@ class AssignOperation(Operation):
 class ForLoopOperation(Operation):
     range_from: Expression
     range_to: Expression
-    block: InstructionBlock | None
+    block: Optional[InstructionBlock]
 
-    def __init__(self, idn: str, range_from: Expression, range_to: Expression, block: InstructionBlock | None, *args, **kwargs):
+    def __init__(self, idn: str, range_from: Expression, range_to: Expression, block: Optional[InstructionBlock]):
         self.idn = idn
         self.range_from = range_from
         self.range_to = range_to
