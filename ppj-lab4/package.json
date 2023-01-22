@@ -4,8 +4,10 @@
     "compiler:program:watch": "nodemon --watch ./FRISCGenerator.py --exec yarn compiler:program",
     "compiler": "python3 ./FRISCGenerator.py < ",
     "compiler:watch": "nodemon --watch ./FRISCGenerator.py --exec yarn compiler",
-    "vm": "node vm/main.js < ./program.frisc",
-    "vm:watch": "nodemon --watch ./program.frisc --exec yarn vm",
+    "vm:program": "node vm/main.js < ./program.frisc",
+    "vm:program:watch": "nodemon --watch ./program.frisc --exec yarn vm",
+    "vm": "node vm/main.js < ./a.frisc",
+    "vm:watch": "nodemon --watch ./a.frisc --exec yarn vm",
     "test": "zx ./test.mjs"
   },
   "dependencies": {
